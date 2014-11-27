@@ -99,38 +99,37 @@ class IRCHandler(DefaultCommandHandler):
         nick,host = nick.split('!')
         highlight = (self.client.nick in msg or self.client.nick in chan)
         if self.client.nick in chan:
-            chan = 'PRIVATE'
-        self.print_line('%s: <%s> %s'%(chan,nick,msg),True,highlight)
+            chan = 'P'
+        else:
+            chan = ''
+        self.print_line('%s<%s> %s'%(chan,nick,msg),True,highlight)
     
     def notice(self,server,target,msg):
         logger = logging.getLogger('IRCTerm.IRCHandler.notice')
         logger.debug('NOTICE from %s to %s: %s'%(server,target,msg))
         highlight = (self.client.nick in target or '*' in target)
-        self.print_line('%s: *%s* %s'%(server,target,msg),True,highlight)
+        self.print_line('%s: %s'%(server,msg),True,highlight)
         
     def welcome(self,server,target,msg):
         logger = logging.getLogger('IRCTerm.IRCHandler.welcome')
         logger.debug('WELCOME from %s to %s: %s'%(server,target,msg))
         highlight = (self.client.nick in target or '*' in target)
-        self.print_line('%s: *%s* %s'%(server,target,msg),True,highlight)
+        #self.print_line('%s: %s'%(server,msg),True,highlight)
         
     def motdstart(self,server,target,msg):
-        logger = logging.getLogger('IRCTerm.IRCHandler.motd')
+        logger = logging.getLogger('IRCTerm.IRCHandler.motdstart')
         logger.debug('MOTD from %s to %s: %s'%(server,target,msg))
-        highlight = (self.client.nick in target or '*' in target)
-        self.print_line('%s: %s'%(server,msg),True,highlight)
+        #self.print_line('%s: %s'%(server,msg))
         
     def motd(self,server,target,msg):
         logger = logging.getLogger('IRCTerm.IRCHandler.motd')
         logger.debug('MOTD from %s to %s: %s'%(server,target,msg))
-        highlight = (self.client.nick in target or '*' in target)
-        self.print_line('%s: %s'%(server,msg),True,highlight)
+        #self.print_line('%s: %s'%(server,msg))
     
     def endofmotd(self,server,target,msg):
-        logger = logging.getLogger('IRCTerm.IRCHandler.motd')
+        logger = logging.getLogger('IRCTerm.IRCHandler.endofmotd')
         logger.debug('MOTD from %s to %s: %s'%(server,target,msg))
-        highlight = (self.client.nick in target or '*' in target)
-        self.print_line('%s: %s'%(server,msg),True,highlight)
+        #self.print_line('%s: %s'%(server,msg))
         
     def mode(self,*args):
         logger = logging.getLogger('IRCTerm.IRCHandler.mode')
@@ -147,12 +146,12 @@ class IRCHandler(DefaultCommandHandler):
         self.print_line('-!- mode/%s (%s %s) by %s'%(chan,mode,target,mod))
         
     def currenttopic(self,server,target,chan,msg):
-        logger = logging.getLogger('IRCTerm.IRCHandler.topic')
+        logger = logging.getLogger('IRCTerm.IRCHandler.currenttopic')
         logger.debug('CURRENTTOPIC on %s of %s to %s: %s'%(server,chan,target,msg))
         self.print_line('-!- Topic for %s: %s'%(chan,msg))
         
     def topicinfo(self,server,target,chan,user,date):
-        logger = logging.getLogger('IRCTerm.IRCHandler.topic')
+        logger = logging.getLogger('IRCTerm.IRCHandler.topicinfo')
         logger.debug('TOPIC on %s of %s to %s: set by %s on %s'%(server,chan,target,user,date))
         date = datetime.fromtimestamp(int(date))
         user,host = user.split('!')
@@ -169,6 +168,12 @@ class IRCHandler(DefaultCommandHandler):
         logger.debug('PART of %s from %s: %s'%(user,chan,msg))
         user,host = user.split('!')
         self.print_line('-!- %s <%s> has left %s: %s'%(user,host,chan,msg))
+        
+    def quit(self,user,chan):
+        logger = logging.getLogger('IRCTerm.IRCHandler.quit')
+        logger.debug('QUIT of %s from %s'%(user,chan))
+        user,host = user.split('!')
+        self.print_line('-!- %s <%s> has left %s'%(user,host,chan))
         
     def namreply(self,server,target,null,chan,names):
         logger = logging.getLogger('IRCTerm.IRCHandler.names')
@@ -230,6 +235,8 @@ class IRCScrollback(object):
         # highlight a row of text
         if highlight:
             self.printer.inverse_on()
+        else:
+            self.printer.inverse_off()
         
         '''
         # handle *bold* and _underlined_ text
