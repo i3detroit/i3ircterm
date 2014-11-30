@@ -1,12 +1,15 @@
 import Adafruit_BBIO.GPIO as GPIO
 import time
+import cp437
 
 #==============================================================================#
-#   Beaglebone Black script to interface with an HD4478OU Protocol LCD screen
+#   Beaglebone Black script to interface with Noritake 8-bit Protocol LCD screen
 #==============================================================================#
 #
-#   Authors: Ben Hammel, Erik McKee
-#   Date: 2014-12-1
+#   Author: Andrew G. Meyer
+#   Date: 2014-11-30
+
+#   Loosely based on lcd.py, an HD44780 driver by Ben Hammel, Erik McKee
 
 #----------------------------------------------------------------------#
 #   Pins used to transfer data to the LCD display
@@ -29,38 +32,22 @@ PINS = {'E':'P9_24',    # pin 6 on LCD
 #
 #   Corresponding 8bit definition for each character
 #
-CHARS = {'a':'01100001', 'b':'01100010', 'c':'01100011', 'd':'01100100', 
-         'e':'01100101', 'f':'01100110', 'g':'01100111', 'h':'01101000', 
-         'i':'01101001', 'j':'01101010', 'k':'01101011', 'l':'01101100', 
-         'm':'01101101', 'n':'01101110', 'o':'01101111', 'p':'01110000', 
-         'q':'01110001', 'r':'01110010', 's':'01110011', 't':'01110100',
-         'u':'01110101', 'v':'01110110', 'w':'01110111', 'x':'01111000', 
-         'y':'01111001', 'z':'01111010', 'A':'01000001', 'B':'01000010', 
-         'C':'01000011', 'D':'01000100', 'E':'01000101', 'F':'01000110', 
-         'G':'01000111', 'H':'01001000', 'I':'01001001', 'J':'01001010', 
-         'K':'01001011', 'L':'01001100', 'M':'01001101', 'N':'01001110', 
-         'O':'01001111', 'P':'01010000', 'Q':'01010001', 'R':'01010010', 
-         'S':'01010011', 'T':'01010100', 'U':'01010101', 'V':'01010110', 
-         'W':'01010111', 'Y':'01011001', 'Z':'01011010', '1':'00110001',
-         '2':'00110010', '3':'00110011', '4':'00110100', '5':'00110101',
-         '6':'00110110', '7':'00110111', '8':'00111000', '9':'00111001',
-         '0':'00110000', ':':'00111010', ';':'00111011', '<':'00111100',
-         '=':'00111101', '>':'00111110', '?':'00111111', '!':'00100001',
-         '#':'00100011', '$':'00100100', '%':'00100101', '&':'00100110',
-         '(':'00101000', ')':'00101001', '*':'00101010', '+':'00101011',
-         ',':'00101100', '-':'00101101', '.':'00101110', '/':'00101111',
-         ' ':'11111110' 
-         }
+CHARS = cp437.transpose()
 
+#----------------------------------------------------------------------#
+#   Screen configuration. Default is 24x6 a la CU24063-Y100
+#----------------------------------------------------------------------#
+ROWS = 6
+COLS = 24
+         
 #----------------------------------------------------------------------#
 #   Helper functions 
 #----------------------------------------------------------------------#
 
 # Turn all GPIO pins to outputs and set their values to low
-def initalizePins(pins):
+def initializePins(pins):
     for pin in pins.itervalues():
         GPIO.setup(pin, GPIO.OUT)
-
     set_all_low(pins)
 
 # Pause the script for 2 ms
@@ -90,24 +77,24 @@ def set_all_low(pins):
 class Screen:
 
     # Necessary steps to turn on the LCD display
-    def __init__(self, bit_mode=8, cursor_status='blinking'):
+    def __init__(self, cursor_status='blinking'):
 
         if bit_mode not in [4,8]:
             bit_mode = 8
 
         self.bit_mode = bit_mode
         self.pins = dict(PINS)
-
-        # remove pins not used in 4 bit mode
-        if self.bit_mode == 4:
-            for key in ['DB0', 'DB1', 'DB2', 'DB3']:
-                self.pins.pop(key)
+        
+        self.pos_x = 0
+        self.pos_y = 0
 
         # Initialize screen
-        initalizePins(self.pins)
-        self.functionSet()
+        initializePins(self.pins)
+        self.sendCommand('0x1B')    # command mode
+        self.sendCommand('0x40')    # init display
+        wait()
         self.on(cursor_status)
-        self.entryModeSet()
+        self.scrollMode('vertical')
         self.clear()
 
     # Tell the LCD to read in the command 
@@ -116,90 +103,105 @@ class Screen:
         set_all_low(self.pins)
 
     # Turn the GPIO pins on so the LCD can read them in 
-    def sendCommand(self, command, initializing=False):
+    def sendCommand(self, command):
+        if command.startswith('0x'):
+            command = bin(int(command,16))
         set_to_state(PINS['RS'],command[0])
         # Pin R/W is held to ground in the circuit - W only, ignore this bit
         set_to_state(PINS['DB7'], command[2])
         set_to_state(PINS['DB6'], command[3])
         set_to_state(PINS['DB5'], command[4])
         set_to_state(PINS['DB4'], command[5])
-
-        # functionSet is always transfered in parallel - if initializing in 4 bit 
-        # mode, don't bother executing the second half of the command
-        if self.bit_mode == 8:
-            set_to_state(PINS['DB3'], command[6])
-            set_to_state(PINS['DB2'], command[7])
-            set_to_state(PINS['DB1'], command[8])
-            set_to_state(PINS['DB0'], command[9])
-        elif self.bit_mode ==4 and not initializing:
-            self.transfer()
-            set_to_state(PINS['RS'],command[0])
-            set_to_state(PINS['DB7'], command[6])
-            set_to_state(PINS['DB6'], command[7])
-            set_to_state(PINS['DB5'], command[8])
-            set_to_state(PINS['DB4'], command[9])
-
+        set_to_state(PINS['DB3'], command[6])
+        set_to_state(PINS['DB2'], command[7])
+        set_to_state(PINS['DB1'], command[8])
+        set_to_state(PINS['DB0'], command[9])
         self.transfer()
-
 
     # Clear Display
     def clear(self):
-        self.sendCommand('0000000001')
-
-    # Set charecteristics of the LCD screen
-    def functionSet(self):
-        if self.bit_mode == 4:
-            self.sendCommand('0000101100', initializing = True)
-        else:
-            self.sendCommand('0000111100')
+        self.sendCommand('0x0C')
+        
 
     # Turn the LCD on   
     # Turn the cursor on or off and set it's blinking or on or off
     # If nothing is set, or invalid option, set cursor to blinking
     def on(self, cursor_status='blinking'):
-        status_command = {'blinking':'11', 'on':'10', 'off':'00'}
+        '''
+        blinking == underline blinking
+        block == block blinking
+        underline = underline no blink
+        '''
+        status_command = {'blinking':'16', 'block':'15', 'underline':'13'}
         try:
-            command = '00000011' + status_command[cursor_status]
+            command = '0x' + status_command[cursor_status]
         except:
-            command = '00000011' + status_command['blinking']
+            command = '0x' + status_command['blinking']
         self.sendCommand(command)
 
     # Turn the LCD off
     def off(self):
-        self.sendCommand('0000001000')
+        self.sendCommand('0x14')
 
-    # Sets cursor move direction, write left to right  
-    def entryModeSet(self):
-        self.sendCommand('0000000110')
+    # Set scroll mode
+    def scrollMode(self,mode='vertical'):
+        self.sendCommand('0x1F')
+        command = {'vertical':0x02,
+                   'horizontal':0x03,
+                   'overwrite':0x01}[mode]
+        self.sendCommand('0x%02x'%command)
+    
+    # Move cursor
+    def moveCursor(self, x, y):
+        self.sendCommand('0x1F')        # command mode
+        self.sendCommand('0x24')        # move cursor
+        self.sendCommand('0x%02x'%x)    # xL is whatever column
+        self.sendCommand('0x%02x'%y)    # yL is whatever line
+        self.updatePos(x=x,y=y,abs=True)
 
-    # Move cursor to the start of desired line
-    def moveCursor(self, line_number):
-        line_command = {1:'0000000', 2:'1000000', 3:'0010100', 4:'1010100'}
-        try:
-            command='001'+ line_command[line_number]
-        except:
-            command='001'+ line_command[1]
-        self.sendCommand(command)
-
-    # Print a 20 char line to the LCD
+    # Print a COLS char line to the LCD
     def printLine(self, line, line_number=1):
         # limit the length of the string, turn the RS pin to high to start
         # data transfer.
         self.moveCursor(line_number)
-        if len(line)>20:
-            line = line[:20]
+        if len(line)>COLS:
+            line = line[:COLS]
 
         #  for each character in the line, execute the correct command 
         for char in line:
-            try:
-                command = '10' + CHARS[char]
-            except:
-                command = '10' + CHARS['?']
-            self.sendCommand(command) 
-
-
-
-
-
-
-
+            self.printChar(char)
+            
+    def printChar(self,char):
+        if char == '\x08': #backspace
+            self.sendCommand('0x08')
+            self.updatePos(x=-1)
+        try:
+            command = CHARS[char]
+        except:
+            command = CHARS['?']
+        self.sendCommand(command)
+        self.updatePos(x=1)
+        
+    def updatePos(self,x=0,y=0,abs=False):
+        if abs:
+            if not (0 <= x < COLS):
+                x = COLS - 1
+            if not (0 <= y < ROWS):
+                y = ROWS - 1
+            self.pos_x = x
+            self.pos_y = y
+        else:
+            if self.pos_x + x >= COLS:
+                self.x = 0
+                y += 1
+            elif self.pos_x + x < 0:
+                self.pos_x = COLS - 1
+                y -= 1
+            else:
+                self.pos_x += x
+            if not (0 <= self.pos_y + y < ROWS):
+                self.pos_y = 0
+            elif self.pos_y + y < 0:
+                self.pos_y = ROWS - 1
+            else:
+                self.pos_y += y
