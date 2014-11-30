@@ -13,8 +13,17 @@ Prerequisites
 Pins
 ====
 
-| P9 Pin | Purpose | Device |
-|--------|---------|--------|
-| 11     | UART4 RX| Printer|
-| 13     | UART4 TX| Printer|
-  
+| P9 Pin | Purpose  | Device        |
+|--------|----------|---------------|
+| 11     | UART4 RX | Printer       |
+| 13     | UART4 TX | Printer       |
+| 15     | DB0      | LCD Data Bus  |
+| 16     | DB1      | LCD Data Bus  |
+| 17     | DB2      | LCD Data Bus  |
+| 18     | DB3      | LCD Data Bus  |
+| 19     | DB4      | LCD Data Bus  |
+| 20     | DB5      | LCD Data Bus  |
+| 21     | DB6      | LCD Data Bus  |
+| 22     | DB7      | LCD Data Bus  |
+| 23     | RS       | LCD Reset     |
+| 24     | E        | LCD Data RDY  |   

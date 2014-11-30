@@ -3,7 +3,7 @@ import time
 import cp437
 
 #==============================================================================#
-#   Beaglebone Black script to interface with Noritake 8-bit Protocol LCD screen
+#   Beaglebone Black script to interface with Noritake 8-bit Protocol display
 #==============================================================================#
 #
 #   Author: Andrew G. Meyer
@@ -12,18 +12,18 @@ import cp437
 #   Loosely based on lcd.py, an HD44780 driver by Ben Hammel, Erik McKee
 
 #----------------------------------------------------------------------#
-#   Pins used to transfer data to the LCD display
+#   Pins used to transfer data to the display
 #----------------------------------------------------------------------#
-PINS = {'E':'P9_24',    # pin 6 on LCD
-        'RS':'P9_23',   # pin 4 on LCD
-        'DB7':'P9_22',  # pin 14 on LCD
-        'DB6':'P9_21',  # pin 13 on LCD
-        'DB5':'P9_20',  # pin 12 on LCD
-        'DB4':'P9_19',  # pin 11 on LCD
-        'DB3':'P9_18',  # pin 10 on LCD
-        'DB2':'P9_17',  # pin 9 on LCD
-        'DB1':'P9_16',  # pin 8 on LCD
-        'DB0':'P9_15'   # pin 7 on LCD
+PINS = {'E':'P9_24',    # pin 6 on display
+        'RS':'P9_23',   # pin 4 on display
+        'DB7':'P9_22',  # pin 14 on display
+        'DB6':'P9_21',  # pin 13 on display
+        'DB5':'P9_20',  # pin 12 on display
+        'DB4':'P9_19',  # pin 11 on display
+        'DB3':'P9_18',  # pin 10 on display
+        'DB2':'P9_17',  # pin 9 on display
+        'DB1':'P9_16',  # pin 8 on display
+        'DB0':'P9_15'   # pin 7 on display
         }
 
 #----------------------------------------------------------------------#
@@ -72,11 +72,11 @@ def set_all_low(pins):
         set_low(pin)
 
 #----------------------------------------------------------------------#
-#   LCD control 
+#   display control 
 #----------------------------------------------------------------------#
 class Screen:
 
-    # Necessary steps to turn on the LCD display
+    # Necessary steps to turn on the display
     def __init__(self, cursor_status='blinking'):
 
         if bit_mode not in [4,8]:
@@ -97,12 +97,12 @@ class Screen:
         self.scrollMode('vertical')
         self.clear()
 
-    # Tell the LCD to read in the command 
+    # Tell the display to read in the command 
     def transfer(self):
         set_high(PINS['E'])
         set_all_low(self.pins)
 
-    # Turn the GPIO pins on so the LCD can read them in 
+    # Turn the GPIO pins on so the display can read them in 
     def sendCommand(self, command):
         if command.startswith('0x'):
             command = bin(int(command,16))
@@ -123,7 +123,7 @@ class Screen:
         self.sendCommand('0x0C')
         
 
-    # Turn the LCD on   
+    # Turn the display on   
     # Turn the cursor on or off and set it's blinking or on or off
     # If nothing is set, or invalid option, set cursor to blinking
     def on(self, cursor_status='blinking'):
@@ -139,7 +139,7 @@ class Screen:
             command = '0x' + status_command['blinking']
         self.sendCommand(command)
 
-    # Turn the LCD off
+    # Turn the display off
     def off(self):
         self.sendCommand('0x14')
 
@@ -159,7 +159,7 @@ class Screen:
         self.sendCommand('0x%02x'%y)    # yL is whatever line
         self.updatePos(x=x,y=y,abs=True)
 
-    # Print a COLS char line to the LCD
+    # Print a COLS char line to the display
     def printLine(self, line, line_number=1):
         # limit the length of the string, turn the RS pin to high to start
         # data transfer.
